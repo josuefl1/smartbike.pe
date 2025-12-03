@@ -1,0 +1,987 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>SmartBike — Sistema completo</title>
+
+<!-- Leaflet (mapa) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<!-- EmailJS -->
+<script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+
+<style>
+  :root{--accent:#111;--muted:#efefef;--card:#fff;--danger:#d9534f;--green:#2e8b57}
+  *{box-sizing:border-box}
+  body{font-family:Arial,Helvetica,sans-serif;margin:0;background:#fafafa;color:#222}
+  header{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid #e6e6e6;background:#fff;position:sticky;top:0;z-index:50}
+  .brand{display:flex;align-items:center;gap:12px}
+  .brand img{width:56px;cursor:pointer}
+  nav{display:flex;gap:12px;align-items:center}
+  nav a, nav button{background:transparent;border:0;padding:6px 10px;border-radius:6px;cursor:pointer;color:#333;text-decoration:none}
+  .btn-primary{background:var(--accent);color:#fff;border:none;padding:6px 10px;border-radius:6px}
+  .btn-ghost{background:#fff;border:1px solid #ddd;padding:6px 8px;border-radius:6px}
+  main{max-width:1200px;margin:22px auto;padding:0 16px}
+
+  /* HERO */
+  #home{ text-align:center}
+  #home h1{font-size:44px;margin:18px 0}
+  .hero-image{width:100%;height:300px;background:#e6e6e6;border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .hero-image img{width:100%;height:100%;object-fit:cover;opacity:0.95}
+
+  /* catalog layout */
+  .catalog-wrap{display:flex;gap:18px;margin-top:18px}
+  .filters{width:260px;background:#fff;padding:16px;border-radius:10px;border:1px solid #eee;align-self:flex-start}
+  .filters h4{margin:0 0 8px;font-size:15px}
+  .filter-group{margin-bottom:12px}
+  .filter-tags{display:flex;flex-wrap:wrap;gap:6px}
+  .tag{background:#f1f1f1;padding:6px 8px;border-radius:20px;font-size:13px}
+  .checkbox-row{display:flex;flex-direction:column;gap:6px}
+  .range{display:flex;gap:8px;align-items:center}
+  input[type=range]{width:100%}
+
+  .catalog{flex:1}
+  .catalog-header{display:flex;align-items:center;gap:12px;justify-content:space-between;margin-bottom:12px}
+  .search{display:flex;gap:8px;align-items:center}
+  .search input{padding:8px 10px;width:320px;border-radius:10px;border:1px solid #ddd}
+  .categories{display:flex;gap:8px;flex-wrap:wrap}
+  .category-btn{padding:8px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;cursor:pointer}
+  .category-btn.active{background:var(--accent);color:#fff}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
+  .card{background:var(--card);padding:12px;border-radius:10px;border:1px solid #eee;display:flex;flex-direction:column;gap:8px}
+  .card .img{height:150px;background:#efefef;border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .card .img img{width:100%;height:100%;object-fit:cover}
+  .card h3{margin:0;font-size:15px}
+  .card .meta{display:flex;justify-content:space-between;align-items:center;font-size:14px;color:#333}
+  .card button{margin-top:auto;padding:8px;border:0;border-radius:8px;background:var(--accent);color:#fff;cursor:pointer}
+
+  /* product / reservation */
+  #productView{background:#fff;padding:18px;border-radius:10px;border:1px solid #eee;margin-top:18px;display:none}
+  .product-wrap{display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap}
+  .product-img{width:360px;height:320px;background:#efefef;border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .product-img img{width:100%;height:100%;object-fit:cover}
+  .product-info{flex:1;min-width:260px}
+  .product-info h2{margin:0 0 8px}
+  .product-info p{margin:0 0 12px;color:#666}
+  .reserve-row{display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+  label{display:block;margin-bottom:6px;font-size:13px;color:#555}
+  input[type=date], input[type=time], select{padding:8px;border-radius:8px;border:1px solid #ddd}
+  .total{font-weight:700;color:var(--danger);font-size:18px;margin-top:10px}
+  .finalize{background:#444;color:#fff;border:0;padding:10px 16px;border-radius:8px;cursor:pointer}
+
+  /* payment */
+  #paymentView{display:none;background:#fff;padding:18px;border-radius:10px;border:1px solid #eee;margin-top:18px}
+  .payment-wrap{display:flex;gap:18px;flex-wrap:wrap}
+  .pay-left{flex:1;min-width:320px}
+  .pay-right{width:420px;min-width:300px;border-left:1px solid #f0f0f0;padding-left:18px}
+  .pay-card{background:#fff;padding:12px;border-radius:8px;border:1px solid #eee;margin-bottom:12px}
+  .pay-actions{display:flex;flex-direction:column;gap:10px}
+  .btn-yape{background:#7b1fa2;color:#fff;padding:12px;border-radius:8px;border:0;cursor:pointer}
+  .btn-plin{background:#0aa7e2;color:#fff;padding:12px;border-radius:8px;border:0;cursor:pointer}
+  .small-muted{font-size:13px;color:#666;margin-bottom:8px}
+  .summary-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px dashed #eee}
+  .summary-row strong{font-size:16px}
+  .coupon-row{display:flex;gap:8px;margin-top:6px}
+  .apply-btn{background:#0a7;color:#fff;padding:8px;border-radius:8px;border:0;cursor:pointer}
+  .saved-card{background:#f7f7f7;padding:8px;border-radius:8px;border:1px solid #eee;margin-bottom:8px}
+
+  /* map */
+  #mapWrap{display:none;margin-top:18px;background:#fff;padding:12px;border-radius:10px;border:1px solid #eee}
+  #map{height:450px;border-radius:8px}
+
+  @media (max-width:980px){
+    .catalog-wrap{flex-direction:column}
+    .filters{width:100%}
+    .product-wrap{flex-direction:column}
+    .product-img{width:100%;height:260px}
+    .pay-right{width:100%;border-left:none;padding-left:0}
+  }
+</style>
+</head>
+<body>
+
+<script>
+  // Init EmailJS with the PUBLIC KEY you provided earlier
+  (function(){ emailjs.init("3SGai-FjrsS-c2Dzm"); })();
+</script>
+
+<header>
+  <div class="brand">
+    <img src="https://storage.googleapis.com/chatgpt-static/998db508-9f44-4c03-944b-30490d77d9ce.png" alt="logo" id="logo">
+    <div style="font-weight:700">SMARTBIKE</div>
+  </div>
+
+  <nav>
+    <a href="#" id="navProducts">Productos</a>
+    <a href="#" id="navMap">Mapa</a>
+    <a href="#" id="navMetodo">Metodo Pago</a>
+    <a href="#" id="navContacto">Contacto</a>
+
+    <button class="btn-ghost" id="btnSign">Sign in</button>
+    <button class="btn-primary" id="btnRegister">Register</button>
+  </nav>
+</header>
+
+<main>
+  <!-- HOME -->
+  <section id="home">
+    <h1>SMARTBIKE</h1>
+    <div class="hero-image">
+      <img src="https://storage.googleapis.com/chatgpt-static/1cbf468a-2248-471f-97cc-93105bd12ae3.png" alt="bosque">
+    </div>
+  </section>
+
+  <!-- AUTH VIEWS -->
+  <section id="authViews" style="margin-top:18px;display:none">
+    <div id="viewRegister" style="display:none;background:#fff;padding:18px;border-radius:8px;border:1px solid #eee;max-width:760px;margin:0 auto">
+      <h3>Registro</h3>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <input id="regNombre" placeholder="Nombre" style="flex:1;padding:10px">
+        <input id="regApellido" placeholder="Apellido" style="flex:1;padding:10px">
+        <input id="regEmail" placeholder="Correo (debe terminar en @gmail.com)" style="flex-basis:100%;padding:10px">
+        <input id="regPass" placeholder="Contraseña" type="password" style="flex-basis:100%;padding:10px">
+        <div style="display:flex;gap:10px">
+          <button class="btn-primary" id="doRegister">Crear cuenta</button>
+          <button class="btn-ghost" id="cancelRegister">Cancelar</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="viewLogin" style="display:none;background:#fff;padding:18px;border-radius:8px;border:1px solid #eee;max-width:760px;margin:18px auto 0">
+      <h3>Iniciar Sesión</h3>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <input id="logNombre" placeholder="Nombre" style="padding:10px">
+        <input id="logApellido" placeholder="Apellido" style="padding:10px">
+        <input id="logPass" placeholder="Contraseña" type="password" style="padding:10px">
+        <div style="display:flex;gap:10px">
+          <button class="btn-primary" id="doLogin">Ingresar</button>
+          <button class="btn-ghost" id="cancelLogin">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CATALOG -->
+  <section id="catalogSection" style="display:none">
+    <div class="catalog-wrap">
+      <aside class="filters">
+        <h4>Descripción</h4>
+        <div class="filter-group filter-tags" id="descTags"></div>
+
+        <h4>Ruedas</h4>
+        <div class="filter-group checkbox-row">
+          <label><input type="checkbox" class="f-wheel" value="Grandes"> Ruedas Grandes</label>
+          <label><input type="checkbox" class="f-wheel" value="Anchas"> Ruedas Anchas</label>
+          <label><input type="checkbox" class="f-wheel" value="Basicas"> Ruedas Básicas</label>
+        </div>
+
+        <h4>Presupuesto (S/ por hora)</h4>
+        <div class="filter-group range">
+          <input id="budgetRange" type="range" min="0" max="30" value="30">
+          <div id="budgetVal">S/ 30</div>
+        </div>
+
+        <h4>Color</h4>
+        <div class="filter-group checkbox-row">
+          <label><input type="checkbox" class="f-color" value="Negro"> Negro</label>
+          <label><input type="checkbox" class="f-color" value="Rojo"> Rojo</label>
+          <label><input type="checkbox" class="f-color" value="Azul"> Azul</label>
+        </div>
+
+        <h4>Tamaño</h4>
+        <div class="filter-group checkbox-row">
+          <label><input type="checkbox" class="f-size" value="Alta"> Alta</label>
+          <label><input type="checkbox" class="f-size" value="Mediana"> Mediana</label>
+          <label><input type="checkbox" class="f-size" value="Pequeña"> Pequeña</label>
+        </div>
+      </aside>
+
+      <div class="catalog">
+        <div class="catalog-header">
+          <div class="search">
+            <input id="searchInput" placeholder="Buscar por marca o modelo...">
+          </div>
+          <div class="categories">
+            <button class="category-btn active" data-cat="All">Todos</button>
+            <button class="category-btn" data-cat="Deportiva">Deportiva</button>
+            <button class="category-btn" data-cat="Ruta">De ruta</button>
+            <button class="category-btn" data-cat="Montaña">Montaña</button>
+            <button class="category-btn" data-cat="Urbanas">Urbanas</button>
+          </div>
+        </div>
+
+        <div class="grid" id="productGrid"></div>
+      </div>
+    </div>
+
+    <div id="productView">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h3 id="pvName">Tu Bicicleta</h3>
+        <button class="btn-ghost" id="backToCatalog">Volver al catálogo</button>
+      </div>
+
+      <div class="product-wrap">
+        <div class="product-img" id="pvImg"><img src="" alt="img"></div>
+
+        <div class="product-info">
+          <h2 id="pvTitle">Nombre</h2>
+          <p id="pvDesc">Descripción breve</p>
+          <p><strong>Precio por hora: S/ <span id="pvPrice">0</span></strong></p>
+
+          <div style="margin-top:12px">
+            <div class="reserve-row">
+              <div>
+                <label>Día de Reservación</label>
+                <input type="date" id="resDate">
+              </div>
+
+              <div>
+                <label>Hora Inicio</label>
+                <input type="time" id="resStart" value="09:00">
+              </div>
+
+              <div>
+                <label>Hora Fin</label>
+                <input type="time" id="resEnd" value="12:00">
+              </div>
+            </div>
+
+            <div>
+              <div class="total">Total: S/ <span id="resTotal">0</span></div>
+              <button class="finalize" id="finalizeBtn" style="margin-top:12px">Finalizar Reservación</button>
+            </div>
+          </div>
+
+          <div id="reserveMsg" style="margin-top:12px;color:green;font-weight:600"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PAYMENT VIEW -->
+  <section id="paymentView">
+    <h3>Método de Pago</h3>
+    <div class="payment-wrap">
+      <!-- LEFT: online pay (Yape/Plin) -->
+      <div class="pay-left">
+        <div class="pay-card">
+          <h4>Detalles de Facturación</h4>
+          <div style="display:flex;gap:10px">
+            <input id="billNombre" placeholder="Nombres" style="flex:1;padding:8px">
+            <input id="billApellido" placeholder="Apellidos" style="flex:1;padding:8px">
+          </div>
+          <div style="margin-top:8px">
+            <input id="billEmail" placeholder="Email" style="width:100%;padding:8px">
+          </div>
+          <div style="margin-top:8px">
+            <input id="billTelefono" placeholder="Teléfono" style="width:100%;padding:8px">
+          </div>
+
+          <div style="margin-top:8px">
+            <label><input id="optPromos" type="checkbox"> Quiero recibir alertas y promociones por email.</label>
+          </div>
+          <div style="margin-top:6px">
+            <label><input id="optFactura" type="checkbox"> Solicitar Factura Electrónica (RUC)</label>
+          </div>
+
+          <div id="rucBox" style="display:none;margin-top:8px">
+            <input id="rucInput" placeholder="Ingresa RUC" style="width:100%;padding:8px">
+          </div>
+
+          <div style="margin-top:12px" class="small-muted">Tu pago es 100% seguro. Elige Yape o Plin para pagar rápidamente.</div>
+
+          <div class="pay-actions" style="margin-top:12px">
+            <button id="btnYape" class="btn-yape">Pagar con Yape</button>
+            <button id="btnPlin" class="btn-plin">Pagar con Plin</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: pago con tarjeta y resumen -->
+      <div class="pay-right">
+        <div class="pay-card">
+          <h4>Tarjeta de Crédito / Débito</h4>
+          <div style="margin-top:8px">
+            <label>Número de tarjeta:</label>
+            <input id="cardNum" placeholder="4242 4242 4242 4242" style="width:100%;padding:8px">
+          </div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <div style="flex:1">
+              <label>MM/AA:</label>
+              <input id="cardExp" placeholder="MM/AA" style="width:100%;padding:8px">
+            </div>
+            <div style="width:120px">
+              <label>CVV:</label>
+              <input id="cardCVV" placeholder="123" style="width:100%;padding:8px">
+            </div>
+          </div>
+
+          <div style="margin-top:8px">
+            <label><input id="saveCard" type="checkbox"> Guardar tarjeta para el próximo alquiler.</label>
+          </div>
+
+          <div style="margin-top:12px">
+            <button id="payCardBtn" class="btn-primary" style="width:100%">Pagar con tarjeta (visual)</button>
+          </div>
+        </div>
+
+        <div class="pay-card">
+          <h4>Finalizar Alquiler</h4>
+          <div id="summarySmall">
+            <div><strong id="smName">Bicicleta:</strong></div>
+            <div style="font-size:14px;color:#666" id="smDetails"></div>
+            <div style="margin-top:8px">Costo por Hora: S/ <span id="smPrice">0</span></div>
+          </div>
+
+          <div style="margin-top:10px">
+            <label>¿Tienes un cupón?</label>
+            <div class="coupon-row">
+              <input id="couponInput" placeholder="Ej: LDC123" style="flex:1;padding:8px">
+              <button id="applyCoupon" class="apply-btn">APLICAR</button>
+            </div>
+            <div id="couponMsg" style="margin-top:6px;color:#d9534f;font-weight:600"></div>
+          </div>
+
+          <div style="margin-top:12px">
+            <div class="summary-row"><div>Subtotal</div><div>S/ <span id="subAmount">0.00</span></div></div>
+            <div class="summary-row"><div>Impuestos (IGV 18%)</div><div>S/ <span id="taxAmount">0.00</span></div></div>
+            <div class="summary-row"><div><strong>TOTAL A PAGAR</strong></div><div style="color:var(--green)"><strong>S/ <span id="totalAmount">0.00</span></strong></div></div>
+          </div>
+
+          <div style="margin-top:12px">
+            <button id="finalPayBtn" class="btn-primary" style="width:100%">Confirmar pago</button>
+          </div>
+
+          <div id="paymentMsg" style="margin-top:10px;font-weight:700;color:green"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MAPA -->
+  <section id="mapWrap">
+    <h3>Mapa — Busca tu ruta</h3>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <input id="mapDestino" placeholder="Ingresa tu destino (ej: Miraflores, Lima)" style="flex:1;padding:8px;border-radius:8px;border:1px solid #ddd">
+      <button id="mapBuscar" class="btn-primary">Buscar ruta</button>
+    </div>
+    <div id="map"></div>
+  </section>
+
+</main>
+
+<script>
+/* ================= CONFIGURACIÓN ================= */
+const ADMIN_EMAIL = "luisuwudonayrecarhuayo@gmail.com"; // admin destinatario (para referencia)
+const EMAILJS_SERVICE = "service_bn4clj6";   // usando la opción que elegiste
+const EMAILJS_TEMPLATE_ADMIN = "template_uixvirh"; // usa tu template existente (ajusta si es otro)
+const EMAILJS_TEMPLATE_CLIENT = "template_no4f3hq"; // plantilla cliente (ajusta si es otro)
+const EMAILJS_PUBLIC_KEY = "3SGai-FjrsS-c2Dzm";
+
+/* Inicializar EmailJS (ya inicializado arriba pero aseguramos) */
+(function(){ emailjs.init(EMAILJS_PUBLIC_KEY); })();
+
+/* ================= CATALOGO ================= */
+const CATALOG = [
+  { id:1, cat:"Deportiva", name:"Sprint Pro X1", price:15, size:"Mediana", color:"Negro", wheels:"Grandes", tags:["Spring","Smart"] },
+  { id:2, cat:"Deportiva", name:"Smartbike Racer", price:14, size:"Alta", color:"Azul", wheels:"Anchas", tags:["Smart"] },
+  { id:3, cat:"Deportiva", name:"Falcon Sport 300", price:12, size:"Pequeña", color:"Rojo", wheels:"Basicas", tags:["Modern"] },
+  { id:4, cat:"Deportiva", name:"Velocity R7", price:16, size:"Mediana", color:"Negro", wheels:"Grandes", tags:[] },
+  { id:5, cat:"Deportiva", name:"RapidFire X", price:13, size:"Alta", color:"Azul", wheels:"Basicas", tags:[] },
+  { id:6, cat:"Deportiva", name:"RoadRunner S", price:15, size:"Mediana", color:"Rojo", wheels:"Anchas", tags:[] },
+  { id:7, cat:"Ruta", name:"SpeedRun 500", price:7, size:"Mediana", color:"Azul", wheels:"Basicas", tags:[] },
+  { id:8, cat:"Ruta", name:"LightRoad 2.0", price:8, size:"Alta", color:"Negro", wheels:"Grandes", tags:[] },
+  { id:9, cat:"Ruta", name:"UltraRoute S", price:9, size:"Pequeña", color:"Rojo", wheels:"Anchas", tags:[] },
+  { id:10, cat:"Ruta", name:"WindFlow 700", price:7, size:"Mediana", color:"Negro", wheels:"Basicas", tags:[] },
+  { id:11, cat:"Ruta", name:"EagleRoute", price:8, size:"Alta", color:"Azul", wheels:"Grandes", tags:[] },
+  { id:12, cat:"Ruta", name:"Aerolite 1X", price:9, size:"Mediana", color:"Rojo", wheels:"Anchas", tags:[] },
+  { id:13, cat:"Montaña", name:"TrailMaster M5", price:9, size:"Alta", color:"Negro", wheels:"Grandes", tags:[] },
+  { id:14, cat:"Montaña", name:"Rocky 500X", price:10, size:"Mediana", color:"Rojo", wheels:"Basicas", tags:[] },
+  { id:15, cat:"Montaña", name:"HillRider Pro", price:8, size:"Pequeña", color:"Azul", wheels:"Anchas", tags:[] },
+  { id:16, cat:"Montaña", name:"MountainRex", price:9, size:"Alta", color:"Negro", wheels:"Anchas", tags:[] },
+  { id:17, cat:"Montaña", name:"ClimbForce", price:10, size:"Mediana", color:"Azul", wheels:"Grandes", tags:[] },
+  { id:18, cat:"Montaña", name:"StoneBreaker", price:9, size:"Alta", color:"Rojo", wheels:"Basicas", tags:[] },
+  { id:19, cat:"Urbanas", name:"CityBike Plus", price:8, size:"Mediana", color:"Negro", wheels:"Basicas", tags:[] },
+  { id:20, cat:"Urbanas", name:"UrbanLite X", price:7, size:"Pequeña", color:"Azul", wheels:"Grandes", tags:[] },
+  { id:21, cat:"Urbanas", name:"MetroRide 300", price:6, size:"Alta", color:"Rojo", wheels:"Anchas", tags:[] },
+  { id:22, cat:"Urbanas", name:"EasyGo Z", price:8, size:"Mediana", color:"Negro", wheels:"Grandes", tags:[] },
+  { id:23, cat:"Urbanas", name:"StreetBike Mini", price:7, size:"Pequeña", color:"Azul", wheels:"Basicas", tags:[] },
+  { id:24, cat:"Urbanas", name:"TownRider", price:6, size:"Mediana", color:"Rojo", wheels:"Basicas", tags:[] }
+];
+
+let activeCategory = "All";
+let selectedProduct = null;
+let currentReservation = null;
+let currentUser = null;
+
+/* DOM Shortcuts */
+const productGrid = document.getElementById("productGrid");
+const budgetRange = document.getElementById("budgetRange");
+const budgetVal = document.getElementById("budgetVal");
+const searchInput = document.getElementById("searchInput");
+const categoryBtns = document.querySelectorAll(".category-btn");
+
+/* INIT */
+function init(){
+  // tags fallback
+  const descTagsContainer = document.getElementById("descTags");
+  ["Spring","Smart","Modern"].forEach(t=>{
+    const el = document.createElement("div"); el.className="tag"; el.textContent=t;
+    descTagsContainer.appendChild(el);
+  });
+
+  // listeners
+  budgetRange.addEventListener("input", ()=>{ budgetVal.textContent = "S/ " + budgetRange.value; renderGrid(); });
+  searchInput.addEventListener("input", renderGrid);
+  document.querySelectorAll(".f-wheel").forEach(n=>n.addEventListener("change", renderGrid));
+  document.querySelectorAll(".f-color").forEach(n=>n.addEventListener("change", renderGrid));
+  document.querySelectorAll(".f-size").forEach(n=>n.addEventListener("change", renderGrid));
+  categoryBtns.forEach(b=>b.addEventListener("click", ()=>{ categoryBtns.forEach(x=>x.classList.remove("active")); b.classList.add("active"); activeCategory=b.dataset.cat; renderGrid(); }));
+
+  // nav / auth
+  document.getElementById("btnRegister").addEventListener("click", ()=>{ showAuth('register'); });
+  document.getElementById("btnSign").addEventListener("click", ()=>{ showAuth('login'); });
+  document.getElementById("logo").addEventListener("click", ()=>{ showHome(); });
+  document.getElementById("navProducts").addEventListener("click",(e)=>{ e.preventDefault(); openCatalog(); });
+  document.getElementById("navMap").addEventListener("click",(e)=>{ e.preventDefault(); openMap(); });
+
+  // auth actions
+  document.getElementById("doRegister").addEventListener("click", doRegister);
+  document.getElementById("cancelRegister").addEventListener("click", ()=>showAuth());
+  document.getElementById("doLogin").addEventListener("click", doLogin);
+  document.getElementById("cancelLogin").addEventListener("click", ()=>showAuth());
+
+  // catalog product
+  document.getElementById("backToCatalog").addEventListener("click", ()=>{ document.getElementById("productView").style.display="none"; });
+
+  // reservation finalize
+  document.getElementById("finalizeBtn").addEventListener("click", finalizeReservation);
+
+  // payment
+  document.getElementById("optFactura").addEventListener("change", (e)=>{ document.getElementById('rucBox').style.display = e.target.checked ? 'block' : 'none'; });
+  document.getElementById("btnYape").addEventListener("click", ()=> payWithDeepLink('yape'));
+  document.getElementById("btnPlin").addEventListener("click", ()=> payWithDeepLink('plin'));
+  document.getElementById("applyCoupon").addEventListener("click", applyCoupon);
+  document.getElementById("payCardBtn").addEventListener("click", ()=> simulateCardPay());
+  document.getElementById("finalPayBtn").addEventListener("click", confirmFinalPayment);
+
+  // product view recalc
+  ['resDate','resStart','resEnd'].forEach(id=>{ document.getElementById(id).addEventListener('change', updateTotalFromInputs); });
+
+  // map search
+  document.getElementById("mapBuscar").addEventListener("click", buscarRutaEnMapa);
+
+  renderGrid();
+  const saved = localStorage.getItem('usuario');
+  if(saved) currentUser = JSON.parse(saved);
+}
+init();
+
+/* RENDER GRID */
+function renderGrid(){
+  productGrid.innerHTML = '';
+  const q = (searchInput.value||'').trim().toLowerCase();
+  const maxBudget = Number(budgetRange.value);
+  const wheels = Array.from(document.querySelectorAll('.f-wheel:checked')).map(n=>n.value);
+  const colors = Array.from(document.querySelectorAll('.f-color:checked')).map(n=>n.value);
+  const sizes = Array.from(document.querySelectorAll('.f-size:checked')).map(n=>n.value);
+
+  // IMÁGENES REALES PARA TODAS LAS BICICLETAS
+  const IMG = {
+    1:"https://images.pexels.com/photos/276517/pexels-photo-276517.jpeg",
+    2:"https://images.pexels.com/photos/100582/pexels-photo-100582.jpeg",
+    3:"https://images.pexels.com/photos/276517/pexels-photo-276517.jpeg",
+    4:"https://images.pexels.com/photos/276517/pexels-photo-276517.jpeg",
+    5:"https://images.pexels.com/photos/100582/pexels-photo-100582.jpeg",
+    6:"https://images.pexels.com/photos/100582/pexels-photo-100582.jpeg",
+
+    7:"https://images.pexels.com/photos/276517/pexels-photo-276517.jpeg",
+    8:"https://images.pexels.com/photos/276517/pexels-photo-276517.jpeg",
+    9:"https://images.pexels.com/photos/100582/pexels-photo-100582.jpeg",
+    10:"https://images.pexels.com/photos/276517/pexels-photo-276517.jpeg",
+    11:"https://images.pexels.com/photos/100582/pexels-photo-100582.jpeg",
+    12:"https://images.pexels.com/photos/100582/pexels-photo-100582.jpeg",
+
+    13:"https://images.pexels.com/photos/276517/pexels-photo-276517.jpeg",
+    14:"https://images.pexels.com/photos/100582/pexels-photo-100582.jpeg",
+    15:"https://images.pexels.com/photos/100582/pexels-photo-100582.jpeg",
+    16:"https://images.pexels.com/photos/276517/pexels-photo-276517.jpeg",
+    17:"https://images.pexels.com/photos/100582/pexels-photo-100582.jpeg",
+    18:"https://images.pexels.com/photos/100582/pexels-photo-100582.jpeg",
+
+    19:"https://images.pexels.com/photos/276517/pexels-photo-276517.jpeg",
+    20:"https://images.pexels.com/photos/100582/pexels-photo-100582.jpeg",
+    21:"https://images.pexels.com/photos/100582/pexels-photo-100582.jpeg",
+    22:"https://images.pexels.com/photos/276517/pexels-photo-276517.jpeg",
+    23:"https://images.pexels.com/photos/100582/pexels-photo-100582.jpeg",
+    24:"https://images.pexels.com/photos/100582/pexels-photo-100582.jpeg",
+  };
+
+  let list = CATALOG.filter(p=>{
+    if(activeCategory !== 'All' && p.cat !== activeCategory) return false;
+    if(q && !p.name.toLowerCase().includes(q)) return false;
+    if(p.price > maxBudget) return false;
+    if(wheels.length>0 && !wheels.includes(p.wheels)) return false;
+    if(colors.length>0 && !colors.includes(p.color)) return false;
+    if(sizes.length>0 && !sizes.includes(p.size)) return false;
+    return true;
+  });
+
+  list.forEach(p=>{
+    const card = document.createElement('div'); card.className='card';
+
+    const imgDiv = document.createElement('div'); imgDiv.className='img';
+    const img = document.createElement('img');
+    img.src = IMG[p.id] || "https://via.placeholder.com/600x400";
+    imgDiv.appendChild(img);
+
+    card.appendChild(imgDiv);
+
+    const h = document.createElement('h3');
+    h.textContent = p.name;
+    card.appendChild(h);
+
+    const meta = document.createElement('div');
+    meta.className='meta';
+    meta.innerHTML = `<div>${p.cat}</div><div>S/ ${p.price} x hora</div>`;
+    card.appendChild(meta);
+
+    const btn = document.createElement('button');
+    btn.textContent = "Ver / Reservar";
+    btn.onclick = ()=> openProduct(p.id);
+    card.appendChild(btn);
+
+    productGrid.appendChild(card);
+  });
+
+  if(list.length===0){
+    productGrid.innerHTML = '<div style="padding:20px;background:#fff;border-radius:10px;border:1px solid #eee">No hay resultados.</div>';
+  }
+}
+
+/* AUTH */
+function showAuth(view=null){
+  document.getElementById('authViews').style.display = view ? 'block' : 'none';
+  document.getElementById('viewRegister').style.display = (view==='register') ? 'block' : 'none';
+  document.getElementById('viewLogin').style.display = (view==='login') ? 'block' : 'none';
+  // hide others
+  document.getElementById('home').style.display='none';
+  document.getElementById('catalogSection').style.display='none';
+  document.getElementById('productView').style.display='none';
+  document.getElementById('paymentView').style.display='none';
+  document.getElementById('mapWrap').style.display='none';
+}
+
+function doRegister(){
+  const nombre = document.getElementById('regNombre').value.trim();
+  const apellido = document.getElementById('regApellido').value.trim();
+  const email = document.getElementById('regEmail').value.trim();
+  const pass = document.getElementById('regPass').value;
+  if(!nombre||!apellido||!email||!pass){ alert('Completa todos los campos'); return; }
+  if(!email.endsWith('@gmail.com')){ alert('El correo debe terminar en @gmail.com'); return; }
+  const user = { nombre, apellido, email, pass };
+  localStorage.setItem('usuario', JSON.stringify(user));
+  currentUser = user;
+  alert('Registro exitoso. Ya puedes ingresar.');
+  showAuth();
+  openCatalog();
+}
+
+function doLogin(){
+  const nombre = document.getElementById('logNombre').value.trim();
+  const apellido = document.getElementById('logApellido').value.trim();
+  const pass = document.getElementById('logPass').value;
+  const stored = localStorage.getItem('usuario');
+  if(!stored){ alert('No hay usuarios registrados. Regístrate primero.'); return; }
+  const u = JSON.parse(stored);
+  if(u.nombre === nombre && u.apellido === apellido && u.pass === pass){
+    currentUser = u;
+    alert('Ingreso correcto. Bienvenido ' + u.nombre);
+    showAuth();
+    openCatalog();
+  } else {
+    alert('Datos incorrectos. Verifica nombre, apellido y contraseña.');
+  }
+}
+
+/* NAV */
+function openCatalog(){
+  document.getElementById('home').style.display='none';
+  document.getElementById('authViews').style.display='none';
+  document.getElementById('catalogSection').style.display='block';
+  document.getElementById('productView').style.display='none';
+  document.getElementById('paymentView').style.display='none';
+  document.getElementById('mapWrap').style.display='none';
+  renderGrid();
+}
+
+/* PRODUCT / RESERVATION */
+function openProduct(id){
+  const p = CATALOG.find(x=>x.id===id);
+  if(!p) return;
+  selectedProduct = p;
+  document.getElementById('productView').style.display='block';
+  document.getElementById('pvImg').querySelector('img').src = 'https://via.placeholder.com/900x600?text=' + encodeURIComponent(p.name);
+  document.getElementById('pvTitle').textContent = p.name;
+  document.getElementById('pvDesc').textContent = `${p.cat} · ${p.size} · ${p.color} · Ruedas: ${p.wheels}`;
+  document.getElementById('pvPrice').textContent = p.price;
+  document.getElementById('pvName').textContent = p.name + ' — Reserva';
+
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('resDate').value = today;
+  document.getElementById('resStart').value = '09:00';
+  document.getElementById('resEnd').value = '12:00';
+  updateTotalFromInputs();
+
+  const stored = localStorage.getItem('usuario');
+  if(!stored){
+    alert('Debes registrarte / iniciar sesión para reservar. Te llevaré al formulario de registro.');
+    showAuth('register');
+    return;
+  }
+  document.getElementById('productView').scrollIntoView({behavior:'smooth'});
+}
+
+function parseTimeToMinutes(t){ const [hh,mm] = (t||'00:00').split(':').map(Number); return hh*60 + mm; }
+function updateTotalFromInputs(){
+  const start = document.getElementById('resStart').value;
+  const end = document.getElementById('resEnd').value;
+  const p = selectedProduct;
+  if(!p) { document.getElementById('resTotal').textContent = '0'; return; }
+  let minsStart = parseTimeToMinutes(start);
+  let minsEnd = parseTimeToMinutes(end);
+  if(minsEnd <= minsStart) minsEnd += 24*60;
+  const diffMins = Math.max(0, minsEnd - minsStart);
+  const hours = diffMins/60;
+  const total = (hours * p.price);
+  document.getElementById('resTotal').textContent = total.toFixed(2);
+}
+
+/* FINALIZE -> payment view */
+function finalizeReservation(){
+  const stored = localStorage.getItem('usuario');
+  if(!stored){ alert('Debes iniciar sesión para reservar'); return; }
+  const u = JSON.parse(stored);
+  currentUser = u;
+
+  const date = document.getElementById('resDate').value;
+  const start = document.getElementById('resStart').value;
+  const end = document.getElementById('resEnd').value;
+  if(!date||!start||!end){ alert('Selecciona fecha y horas válidas'); return; }
+  let s = parseTimeToMinutes(start), e = parseTimeToMinutes(end);
+  if(e <= s) e += 24*60;
+  const hours = Math.round((e - s)/60 * 100)/100;
+  const subtotal = Math.round((hours * selectedProduct.price) * 100)/100;
+
+  const reservation = {
+    productId: selectedProduct.id,
+    productName: selectedProduct.name,
+    userName: u.nombre + ' ' + u.apellido,
+    userEmail: u.email,
+    date, start, end,
+    hours, subtotal,
+    createdAt: new Date().toISOString()
+  };
+
+  currentReservation = reservation;
+  localStorage.setItem('lastReservation', JSON.stringify(reservation));
+
+  // open payment view and populate summary
+  openPaymentView(reservation);
+}
+
+function openPaymentView(res){
+  document.getElementById('catalogSection').style.display='none';
+  document.getElementById('productView').style.display='none';
+  document.getElementById('paymentView').style.display='block';
+  document.getElementById('mapWrap').style.display='none';
+
+  // billing defaults
+  if(currentUser){
+    document.getElementById('billNombre').value = currentUser.nombre || '';
+    document.getElementById('billApellido').value = currentUser.apellido || '';
+    document.getElementById('billEmail').value = currentUser.email || '';
+  }
+
+  document.getElementById('smName').textContent = res.productName;
+  document.getElementById('smDetails').textContent = `${res.date} · ${res.start} - ${res.end} · ${res.hours} h`;
+  document.getElementById('smPrice').textContent = res.subtotal.toFixed(2);
+
+  updatePaymentSummary(res.subtotal, 0);
+  document.getElementById('couponInput').value = '';
+  document.getElementById('couponMsg').textContent = '';
+  document.getElementById('paymentMsg').textContent = '';
+}
+
+/* PAYMENT summary */
+function updatePaymentSummary(subtotal, discountPercent){
+  const discount = subtotal * (discountPercent/100);
+  const afterDiscount = Math.max(0, subtotal - discount);
+  const tax = Math.round(afterDiscount * 0.18 * 100)/100;
+  const total = Math.round((afterDiscount + tax) * 100)/100;
+  document.getElementById('subAmount').textContent = subtotal.toFixed(2);
+  document.getElementById('taxAmount').textContent = tax.toFixed(2);
+  document.getElementById('totalAmount').textContent = total.toFixed(2);
+
+  if(currentReservation){
+    currentReservation.discountPercent = discountPercent || 0;
+    currentReservation.total = total;
+    currentReservation.tax = tax;
+    currentReservation.subtotal = subtotal;
+    localStorage.setItem('lastReservation', JSON.stringify(currentReservation));
+  }
+}
+
+/* COUPON */
+function applyCoupon(){
+  const code = document.getElementById('couponInput').value.trim();
+  if(!code){ document.getElementById('couponMsg').textContent = 'Ingrese un cupón.'; return; }
+  const re = /^LDC\d{3}$/;
+  if(!re.test(code)){ document.getElementById('couponMsg').textContent = 'Cupón inválido'; return; }
+  const discount = 15;
+  document.getElementById('couponMsg').textContent = 'Cupón válido. 15% aplicado.';
+  if(currentReservation) updatePaymentSummary(currentReservation.subtotal, discount);
+}
+
+/* DEEP-LINK PAY */
+function payWithDeepLink(method){
+  const promos = document.getElementById('optPromos').checked;
+  const factura = document.getElementById('optFactura').checked;
+  const ruc = document.getElementById('rucInput').value.trim();
+
+  if(currentReservation){
+    currentReservation.payMethod = method;
+    currentReservation.promos = promos;
+    currentReservation.factura = factura;
+    if(factura) currentReservation.ruc = ruc;
+    localStorage.setItem('lastReservation', JSON.stringify(currentReservation));
+  }
+
+  const number = '965046193';
+  if(method==='yape'){
+    window.location.href = 'yape://pay/' + number;
+    setTimeout(()=>{ window.open('https://wa.me/' + number, '_blank'); }, 800);
+  } else {
+    window.location.href = 'plin://pay/' + number;
+    setTimeout(()=>{ window.open('https://wa.me/' + number, '_blank'); }, 800);
+  }
+}
+
+/* SAVE MASKED CARD */
+function maskCard(num){
+  const only = (num||'').replace(/\s+/g,'');
+  if(only.length<4) return null;
+  const last4 = only.slice(-4);
+  return '**** **** **** ' + last4;
+}
+
+/* SIMULATE CARD PAYMENT */
+function simulateCardPay(){
+  const num = document.getElementById('cardNum').value.trim();
+  const exp = document.getElementById('cardExp').value.trim();
+  const cvv = document.getElementById('cardCVV').value.trim();
+  if(!num || !exp || !cvv){ alert('Completa los datos de la tarjeta'); return; }
+  if(document.getElementById('saveCard').checked){
+    const masked = maskCard(num);
+    if(masked) localStorage.setItem('savedCard', JSON.stringify({masked}));
+  }
+  document.getElementById('paymentMsg').textContent = 'Pago con tarjeta (visual) exitoso. Presiona Confirmar pago para finalizar.';
+}
+
+/* CONFIRM FINAL PAYMENT -> SAVE RESERVATION + SEND EMAILS */
+function confirmFinalPayment(){
+  if(!currentReservation){ alert('No hay reserva activa'); return; }
+
+  // read billing details
+  const billNombre = document.getElementById('billNombre').value.trim();
+  const billApellido = document.getElementById('billApellido').value.trim();
+  const billEmail = document.getElementById('billEmail').value.trim();
+  const billTelefono = document.getElementById('billTelefono').value.trim();
+  const promos = document.getElementById('optPromos').checked;
+  const factura = document.getElementById('optFactura').checked;
+  const ruc = document.getElementById('rucInput').value.trim();
+
+  if(!billNombre || !billApellido || !billEmail){ alert('Completa los datos de facturación.'); return; }
+  // update reservation with billing
+  currentReservation.billing = { billNombre, billApellido, billEmail, billTelefono, promos, factura, ruc };
+
+  // save to reservas
+  const all = JSON.parse(localStorage.getItem('reservas')||'[]');
+  // add a reservation code
+  currentReservation.code = 'SBK-' + Math.floor(Math.random()*900000 + 100000);
+  all.push(currentReservation);
+  localStorage.setItem('reservas', JSON.stringify(all));
+
+  // send emails (admin + client)
+  sendEmails(currentReservation)
+    .then(()=> {
+      document.getElementById('paymentMsg').textContent = 'Pago registrado y correos enviados.';
+      setTimeout(()=>{ alert('Reserva finalizada. Total: S/ ' + (currentReservation.total||0).toFixed(2)); }, 600);
+      // cleanup
+      currentReservation = null;
+      document.getElementById('paymentView').style.display='none';
+      showHome();
+    })
+    .catch((err)=>{
+      console.error('error sending emails', err);
+      document.getElementById('paymentMsg').textContent = 'Pago registrado. Error enviando correos (revisa consola).';
+      currentReservation = null;
+      document.getElementById('paymentView').style.display='none';
+      showHome();
+    });
+}
+
+/* SEND EMAILS using EmailJS */
+function sendEmails(reservation){
+  return new Promise((resolve, reject) => {
+    // Prepare params for admin template
+    const adminParams = {
+      admin_email: ADMIN_EMAIL,
+      nombre: reservation.billing ? reservation.billing.billNombre : '',
+      apellido: reservation.billing ? reservation.billing.billApellido : '',
+      email: reservation.billing ? reservation.billing.billEmail : '',
+      telefono: reservation.billing ? reservation.billing.billTelefono : '',
+      tipo_bici: reservation.productName,
+      fecha: reservation.date,
+      hora: reservation.start + ' - ' + reservation.end,
+      total: (reservation.total || reservation.subtotal || 0).toFixed(2),
+      codigo_reserva: reservation.code || ''
+    };
+
+    // Prepare params for client template
+    const clientParams = {
+      to_email: reservation.billing ? reservation.billing.billEmail : reservation.userEmail,
+      nombre: reservation.billing ? reservation.billing.billNombre : reservation.userName.split(' ')[0],
+      apellido: reservation.billing ? reservation.billing.billApellido : '',
+      email: reservation.billing ? reservation.billing.billEmail : reservation.userEmail,
+      tipo_bici: reservation.productName,
+      fecha: reservation.date,
+      hora: reservation.start + ' - ' + reservation.end,
+      total: (reservation.total || reservation.subtotal || 0).toFixed(2),
+      codigo_reserva: reservation.code || '',
+      mensaje: "Esperamos que disfrutes tu paseo. ¡Nos vemos pronto! \nEquipo Centro de SmartBike"
+    };
+
+    // First send to admin (using EMAILJS_SERVICE and EMAILJS_TEMPLATE_ADMIN)
+    emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE_ADMIN, adminParams)
+      .then((res1)=>{
+        // Then send to client using second template
+        emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE_CLIENT, clientParams)
+          .then((res2)=>{
+            resolve({admin:res1, client:res2});
+          })
+          .catch(err2 => reject(err2));
+      })
+      .catch(err1 => {
+        // still attempt client email even if admin fails
+        emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE_CLIENT, clientParams)
+          .then((res2)=>{
+            // resolve but indicate admin error via console
+            console.warn('Admin email failed, client sent', err1);
+            resolve({adminError: err1, client: res2});
+          })
+          .catch(err2 => reject({adminErr: err1, clientErr: err2}));
+      });
+  });
+}
+
+/* ========== MAPA (Leaflet + Nominatim + OSRM) ========== */
+let map, userMarker, routeLayer;
+
+function openMap(){
+  // show map section
+  document.getElementById('home').style.display='none';
+  document.getElementById('catalogSection').style.display='none';
+  document.getElementById('authViews').style.display='none';
+  document.getElementById('productView').style.display='none';
+  document.getElementById('paymentView').style.display='none';
+  document.getElementById('mapWrap').style.display='block';
+
+  // init map if necessary
+  if(!map){
+    map = L.map('map').setView([-12.0464, -77.0428], 13); // Lima por defecto
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19
+    }).addTo(map);
+
+    // get user location
+    if(navigator.geolocation){
+      navigator.geolocation.getCurrentPosition(pos => {
+        const lat = pos.coords.latitude, lon = pos.coords.longitude;
+        map.setView([lat, lon], 14);
+        userMarker = L.marker([lat, lon]).addTo(map).bindPopup('Tu ubicación').openPopup();
+      }, err => {
+        console.warn('geolocation failed', err);
+      }, { enableHighAccuracy:true });
+    }
+  } else {
+    map.invalidateSize();
+  }
+}
+
+/* buscar destino usando Nominatim y trazar ruta con OSRM */
+async function buscarRutaEnMapa(){
+  const destino = document.getElementById('mapDestino').value.trim();
+  if(!destino) return alert('Escribe un destino');
+  // geocode
+  const nomUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destino)}`;
+  const res = await fetch(nomUrl);
+  const data = await res.json();
+  if(!data || data.length===0) return alert('Destino no encontrado');
+
+  const dest = data[0];
+  const destLat = parseFloat(dest.lat), destLon = parseFloat(dest.lon);
+
+  // ensure we have user location
+  if(!userMarker){
+    try {
+      const pos = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {enableHighAccuracy:true});
+      });
+      const lat = pos.coords.latitude, lon = pos.coords.longitude;
+      userMarker = L.marker([lat, lon]).addTo(map).bindPopup('Tu ubicación').openPopup();
+      map.setView([lat, lon], 13);
+    } catch(err){
+      alert('No se obtuvo ubicación; usando ubicación por defecto.');
+      userMarker = L.marker([-12.0464, -77.0428]).addTo(map).bindPopup('Ubicación por defecto').openPopup();
+    }
+  }
+
+  // remove old route
+  if(routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
+
+  const start = userMarker.getLatLng();
+  const reqUrl = `https://router.project-osrm.org/route/v1/bicycle/${start.lng},${start.lat};${destLon},${destLat}?overview=full&geometries=geojson`;
+
+  const r = await fetch(reqUrl);
+  const rr = await r.json();
+  if(!rr || !rr.routes || rr.routes.length===0) return alert('No fue posible trazar la ruta');
+
+  const coords = rr.routes[0].geometry;
+  routeLayer = L.geoJSON(coords, { style: { color: '#ff0000', weight: 5 } }).addTo(map);
+  // add marker for destination
+  L.marker([destLat, destLon]).addTo(map).bindPopup(dest.display_name).openPopup();
+
+  map.fitBounds(routeLayer.getBounds(), { padding: [20,20] });
+}
+
+/* ========== helper showHome ========== */
+function showHome(){
+  document.getElementById('home').style.display='block';
+  document.getElementById('catalogSection').style.display='none';
+  document.getElementById('authViews').style.display='none';
+  document.getElementById('productView').style.display='none';
+  document.getElementById('paymentView').style.display='none';
+  document.getElementById('mapWrap').style.display='none';
+}
+
+/* show home on load */
+showHome();
+
+</script>
+
+</body>
+</html>
